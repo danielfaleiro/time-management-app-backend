@@ -52,7 +52,7 @@ usersRouter.post('/', async (request, response) => {
 
   try {
     const result = await newUser.save();
-    return response.json(result);
+    return response.status(201).json(result);
   } catch (err) {
     return response.status(400).json({ name: err.name, message: err.message });
   }
