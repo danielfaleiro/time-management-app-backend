@@ -24,7 +24,12 @@ app.use(middleware.errorHandler);
 
 logger.info('Connecting to MongoDB...');
 
-mongoose.connect(config.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(config.MONGODB_URI, {
+  useFindAndModify: false,
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useCreateIndex: true,
+})
   .then(() => {
     logger.info('Connected to mongoDB');
   })

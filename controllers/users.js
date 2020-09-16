@@ -13,7 +13,7 @@ usersRouter.get('/', async (request, response) => {
 usersRouter.get('/:id', async (request, response) => {
   const users = await User
     .findById(request.params.id)
-    .populate('notes', { task: 1, date: 1, hours: 1 });
+    .populate('Notes', { task: 1, date: 1, hours: 1 });
 
   response.status(200).json(users.map((user) => user.toJSON()));
 });
