@@ -20,6 +20,10 @@ notesRouter.get('/', async (request, response) => {
     .findById(decodedToken.id)
     .populate('notes', { task: 1, date: 1, hours: 1 });
 
+  if (!user) {
+    return response.status(400).json({ error: 'bad id request' });
+  }
+
   return response.status(200).json(user.notes.map((note) => note.toJSON()));
 });
 

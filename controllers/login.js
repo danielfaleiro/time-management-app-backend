@@ -32,6 +32,7 @@ loginRouter.post('/', async (request, response) => {
       token,
       username: user.username,
       name: user.name,
+      hours: user.hours,
       status: user.status,
     });
 });
