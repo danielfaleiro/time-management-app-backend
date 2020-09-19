@@ -34,6 +34,7 @@ loginRouter.post('/', async (request, response) => {
       name: user.name,
       hours: user.hours,
       status: user.status,
+      id: user.id,
     });
 });
 
