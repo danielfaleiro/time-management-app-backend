@@ -1,22 +1,17 @@
 const notesRouter = require('express').Router();
-const jwt = require('jsonwebtoken');
 const Note = require('../models/note');
 const User = require('../models/user');
-const config = require('../utils/config');
+const decodeToken = require('../utils/decodeToken');
 const userStatus = require('../utils/userStatus');
 
 notesRouter.get('/', async (request, response) => {
-  if (!request.token) {
+  const { token } = request;
+
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
-
+  const decodedToken = decodeToken(token, response);
   const user = await User
     .findById(decodedToken.id)
     .populate('notes', { task: 1, date: 1, hours: 1 });
@@ -36,18 +31,15 @@ notesRouter.get('/', async (request, response) => {
 });
 
 notesRouter.post('/', async (request, response) => {
-  if (!request.token) {
+  const { token } = request;
+
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
+  const decodedToken = decodeToken(token, response);
 
-  if (!request.token || !decodedToken.id) {
+  if (!token || !decodedToken.id) {
     return response.status(401).json({ error: 'token invalid' });
   }
 
@@ -91,16 +83,13 @@ notesRouter.post('/', async (request, response) => {
 });
 
 notesRouter.delete('/:id', async (request, response) => {
-  if (!request.token) {
+  const { token } = request;
+
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
+  const decodedToken = decodeToken(token, response);
 
   const note = await Note
     .findById(request.params.id);
@@ -125,17 +114,13 @@ notesRouter.put('/', async (request, response) => {
   const {
     date, hours, task, id, user,
   } = request.body;
+  const { token } = request;
 
-  if (!request.token) {
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
+  const decodedToken = decodeToken(token, response);
 
   const oldNote = await Note
     .findById(id);

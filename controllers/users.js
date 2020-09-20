@@ -4,21 +4,18 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const userStatus = require('../utils/userStatus');
 const config = require('../utils/config');
+const decodeToken = require('../utils/decodeToken');
 
 const saltRounds = 10;
 
 usersRouter.get('/', async (request, response) => {
-  if (!request.token) {
+  const { token } = request;
+
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
-
+  const decodedToken = decodeToken(token, response);
   const loggedUser = await User.findById(decodedToken.id);
 
   if (loggedUser.status === userStatus.USER) {
@@ -30,17 +27,13 @@ usersRouter.get('/', async (request, response) => {
 });
 
 usersRouter.delete('/:id', async (request, response) => {
-  if (!request.token) {
+  const { token } = request;
+
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
-
+  const decodedToken = decodeToken(token, response);
   const loggedUser = await User.findById(decodedToken.id);
 
   if (loggedUser.status === userStatus.USER) {
@@ -59,17 +52,13 @@ usersRouter.put('/:id', async (request, response) => {
   const {
     username, name, hours, password, status,
   } = request.body;
+  const { token } = request;
 
-  if (!request.token) {
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
+  const decodedToken = decodeToken(token, response);
 
   const loggedUser = await User
     .findById(decodedToken.id);
@@ -113,8 +102,8 @@ usersRouter.put('/:id', async (request, response) => {
       id: oldUser._id,
     };
 
-    const token = jwt.sign(userForToken, config.SECRET);
-    responseObject = { ...responseObject, token };
+    const newToken = jwt.sign(userForToken, config.SECRET);
+    responseObject = { ...responseObject, token: newToken };
   } else if (loggedUser.status === userStatus.USER) {
     return response.status(401).json({ error: 'access unauthorized' });
   }
@@ -162,16 +151,13 @@ usersRouter.post('/', async (request, response) => {
 });
 
 usersRouter.post('/manager', async (request, response) => {
-  if (!request.token) {
+  const { token } = request;
+
+  if (!token) {
     return response.status(401).json({ error: 'token missing' });
   }
 
-  let decodedToken = null;
-  try {
-    decodedToken = jwt.verify(request.token, config.SECRET);
-  } catch {
-    return response.status(401).json({ error: 'token invalid' });
-  }
+  const decodedToken = decodeToken(token, response);
 
   const loggedUser = await User
     .findById(decodedToken.id);
