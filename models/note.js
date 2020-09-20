@@ -12,11 +12,14 @@ const noteSchema = mongoose.Schema({
   },
   hours: {
     type: Number,
+    min: 1,
+    max: 24,
     required: true,
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    required: true,
   },
 });
 

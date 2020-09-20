@@ -3,6 +3,7 @@ const Note = require('../models/note');
 const User = require('../models/user');
 const decodeToken = require('../utils/decodeToken');
 const userStatus = require('../utils/userStatus');
+const { validateNote } = require('../utils/validation');
 
 notesRouter.get('/', async (request, response) => {
   const { token } = request;
@@ -34,27 +35,34 @@ notesRouter.post('/', async (request, response) => {
   const { token } = request;
 
   if (!token) {
-    return response.status(401).json({ error: 'token missing' });
+    return response.status(401).json({ error: 'Token missing' });
   }
 
   const decodedToken = decodeToken(token, response);
 
   if (!token || !decodedToken.id) {
-    return response.status(401).json({ error: 'token invalid' });
+    return response.status(401).json({ error: 'Token invalid' });
+  }
+
+  const { body } = request;
+  try {
+    validateNote(body);
+  } catch (e) {
+    return response.status(400).json({ error: e.message });
   }
 
   const loggedUser = await User.findById(decodedToken.id);
+  let ownerUser = null;
 
-  const { body } = request;
-  if (!body.task || !body.date || !body.hours) {
-    return response.status(400).json({
-      error: 'content missing',
-    });
+  if (!loggedUser) {
+    return response.status(400).json({ error: 'Bad id request' });
   }
 
-  let ownerUser = null;
-  if (loggedUser.status === userStatus.ADMIN && body.user) {
+  if (loggedUser.status === userStatus.ADMIN) {
     ownerUser = await User.findOne({ username: body.user });
+    if (!ownerUser) {
+      return response.status(400).json({ error: 'Username is missing or invalid.' });
+    }
   }
 
   const newNote = new Note({
@@ -86,7 +94,7 @@ notesRouter.delete('/:id', async (request, response) => {
   const { token } = request;
 
   if (!token) {
-    return response.status(401).json({ error: 'token missing' });
+    return response.status(401).json({ error: 'Token missing' });
   }
 
   const decodedToken = decodeToken(token, response);
@@ -95,7 +103,7 @@ notesRouter.delete('/:id', async (request, response) => {
     .findById(request.params.id);
 
   if (!note) {
-    return response.status(400).json({ error: 'bad id request' });
+    return response.status(400).json({ error: 'Bad id request' });
   }
 
   const userId = decodedToken.id;
@@ -107,7 +115,7 @@ notesRouter.delete('/:id', async (request, response) => {
     return response.status(204).end();
   }
 
-  return response.status(401).json({ error: 'access unauthorized' });
+  return response.status(401).json({ error: 'Access unauthorized' });
 });
 
 notesRouter.put('/', async (request, response) => {
@@ -117,7 +125,13 @@ notesRouter.put('/', async (request, response) => {
   const { token } = request;
 
   if (!token) {
-    return response.status(401).json({ error: 'token missing' });
+    return response.status(401).json({ error: 'Token missing' });
+  }
+
+  try {
+    validateNote({ task, hours, date });
+  } catch (e) {
+    return response.status(400).json({ error: e.message });
   }
 
   const decodedToken = decodeToken(token, response);
@@ -126,19 +140,20 @@ notesRouter.put('/', async (request, response) => {
     .findById(id);
 
   if (!oldNote) {
-    return response.status(400).json({ error: 'bad note id request' });
+    return response.status(400).json({ error: 'Bad note id request' });
   }
 
   const userId = decodedToken.id;
   const loggedUser = await User
     .findById(userId);
-  const isAdmin = loggedUser.status === userStatus.ADMIN;
   const ownerUser = await User
     .findOne({ username: user });
 
-  if (!ownerUser) {
-    return response.status(400).json({ error: 'bad user id request' });
+  if (!ownerUser || !loggedUser) {
+    return response.status(400).json({ error: 'Bad user id request' });
   }
+
+  const isAdmin = loggedUser.status === userStatus.ADMIN;
 
   if ((oldNote.user.toString() === userId.toString()) || isAdmin) {
     let newNote = {
@@ -158,7 +173,7 @@ notesRouter.put('/', async (request, response) => {
     return response.json(updatedNote);
   }
 
-  return response.status(401).json({ error: 'access unauthorized' });
+  return response.status(401).json({ error: 'Access unauthorized' });
 });
 
 module.exports = notesRouter;

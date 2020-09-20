@@ -5,6 +5,7 @@ const User = require('../models/user');
 const userStatus = require('../utils/userStatus');
 const config = require('../utils/config');
 const decodeToken = require('../utils/decodeToken');
+const { validateUser } = require('../utils/validation');
 
 const saltRounds = 10;
 
@@ -12,14 +13,18 @@ usersRouter.get('/', async (request, response) => {
   const { token } = request;
 
   if (!token) {
-    return response.status(401).json({ error: 'token missing' });
+    return response.status(401).json({ error: 'Token missing' });
   }
 
   const decodedToken = decodeToken(token, response);
   const loggedUser = await User.findById(decodedToken.id);
 
+  if (!loggedUser) {
+    return response.status(400).json({ error: 'Bad id request' });
+  }
+
   if (loggedUser.status === userStatus.USER) {
-    return response.status(401).json({ error: 'access unauthorized' });
+    return response.status(401).json({ error: 'Access unauthorized' });
   }
 
   const users = await User.find({});
@@ -30,21 +35,25 @@ usersRouter.delete('/:id', async (request, response) => {
   const { token } = request;
 
   if (!token) {
-    return response.status(401).json({ error: 'token missing' });
+    return response.status(401).json({ error: 'Token missing' });
   }
 
   const decodedToken = decodeToken(token, response);
   const loggedUser = await User.findById(decodedToken.id);
 
+  if (!loggedUser) {
+    return response.status(400).json({ error: 'Bad id request' });
+  }
+
   if (loggedUser.status === userStatus.USER) {
-    return response.status(401).json({ error: 'access unauthorized' });
+    return response.status(401).json({ error: 'Access unauthorized' });
   }
 
   try {
     await User.findByIdAndDelete(request.params.id);
     return response.status(204).end();
   } catch {
-    return response.status(400).json({ error: 'bad id request' });
+    return response.status(400).json({ error: 'Bad id request' });
   }
 });
 
@@ -55,7 +64,15 @@ usersRouter.put('/:id', async (request, response) => {
   const { token } = request;
 
   if (!token) {
-    return response.status(401).json({ error: 'token missing' });
+    return response.status(401).json({ error: 'Token missing' });
+  }
+
+  try {
+    validateUser({
+      username, name, hours, password, status,
+    });
+  } catch (e) {
+    return response.status(400).json({ error: e.message });
   }
 
   const decodedToken = decodeToken(token, response);
@@ -66,16 +83,12 @@ usersRouter.put('/:id', async (request, response) => {
     .findById(request.params.id);
 
   if (!loggedUser || !oldUser) {
-    return response.status(400).json({ error: 'bad id request' });
+    return response.status(400).json({ error: 'Bad id request' });
   }
 
   let newPassword = null;
   if (password) {
-    if (password >= 3) {
-      newPassword = await bcrypt.hash(password, saltRounds);
-    } else {
-      return response.status(400).json({ error: 'password too short' });
-    }
+    newPassword = await bcrypt.hash(password, saltRounds);
   }
 
   const newUser = {
@@ -105,7 +118,7 @@ usersRouter.put('/:id', async (request, response) => {
     const newToken = jwt.sign(userForToken, config.SECRET);
     responseObject = { ...responseObject, token: newToken };
   } else if (loggedUser.status === userStatus.USER) {
-    return response.status(401).json({ error: 'access unauthorized' });
+    return response.status(401).json({ error: 'Access unauthorized' });
   }
 
   return response.status(200).send(responseObject);
@@ -113,80 +126,12 @@ usersRouter.put('/:id', async (request, response) => {
 
 usersRouter.post('/', async (request, response) => {
   const { body } = request;
-
-  if (!body.username || !body.password) {
-    return response.status(400).json({
-      error: 'content missing',
-    });
-  }
-
-  if (body.password.length < 3) {
-    return response.status(400).json({
-      error: 'password too short',
-    });
-  }
-
-  if (body.username.length < 3) {
-    return response.status(400).json({
-      error: 'username too short',
-    });
-  }
-
-  const password = await bcrypt.hash(body.password, saltRounds);
-
-  const newUser = new User({
-    username: body.username,
-    name: body.name,
-    hours: body.hours,
-    status: userStatus.USER,
-    password,
-  });
+  body.status = userStatus.USER;
 
   try {
-    const result = await newUser.save();
-    return response.status(201).json(result);
-  } catch (err) {
-    return response.status(400).json({ name: err.name, message: err.message });
-  }
-});
-
-usersRouter.post('/manager', async (request, response) => {
-  const { token } = request;
-
-  if (!token) {
-    return response.status(401).json({ error: 'token missing' });
-  }
-
-  const decodedToken = decodeToken(token, response);
-
-  const loggedUser = await User
-    .findById(decodedToken.id);
-
-  if (!loggedUser) {
-    return response.status(400).json({ error: 'bad id request' });
-  }
-
-  if (loggedUser.status === userStatus.USER) {
-    return response.status(401).json({ error: 'access unauthorized' });
-  }
-
-  const { body } = request;
-  if (!body.username || !body.password) {
-    return response.status(400).json({
-      error: 'content missing',
-    });
-  }
-
-  if (body.password.length < 3) {
-    return response.status(400).json({
-      error: 'password too short',
-    });
-  }
-
-  if (body.username.length < 3) {
-    return response.status(400).json({
-      error: 'username too short',
-    });
+    validateUser(body, false);
+  } catch (e) {
+    return response.status(400).json({ error: e.message });
   }
 
   const password = await bcrypt.hash(body.password, saltRounds);
@@ -203,7 +148,52 @@ usersRouter.post('/manager', async (request, response) => {
     const result = await newUser.save();
     return response.status(201).json(result);
   } catch (err) {
-    return response.status(400).json({ name: err.name, message: err.message });
+    return response.status(500).json({ error: err.message });
+  }
+});
+
+usersRouter.post('/manager', async (request, response) => {
+  const { token } = request;
+
+  if (!token) {
+    return response.status(401).json({ error: 'Token missing' });
+  }
+
+  const decodedToken = decodeToken(token, response);
+
+  const loggedUser = await User
+    .findById(decodedToken.id);
+
+  if (!loggedUser) {
+    return response.status(400).json({ error: 'Bad id request' });
+  }
+
+  if (loggedUser.status === userStatus.USER) {
+    return response.status(401).json({ error: 'Access unauthorized' });
+  }
+
+  const { body } = request;
+  try {
+    validateUser(body, false);
+  } catch (e) {
+    return response.status(400).json({ error: e.message });
+  }
+
+  const password = await bcrypt.hash(body.password, saltRounds);
+
+  const newUser = new User({
+    username: body.username,
+    name: body.name,
+    hours: body.hours,
+    status: body.status,
+    password,
+  });
+
+  try {
+    const result = await newUser.save();
+    return response.status(201).json(result);
+  } catch (err) {
+    return response.status(500).json({ error: err.message });
   }
 });
 
