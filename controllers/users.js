@@ -49,11 +49,17 @@ usersRouter.delete('/:id', async (request, response) => {
     return response.status(401).json({ error: 'Access unauthorized' });
   }
 
+  const userToDelete = await User.findById(request.params.id);
+
+  if (!userToDelete) {
+    return response.status(400).json({ error: 'Bad id request' });
+  }
+
   try {
-    await User.findByIdAndDelete(request.params.id);
+    await userToDelete.remove();
     return response.status(204).end();
   } catch {
-    return response.status(400).json({ error: 'Bad id request' });
+    return response.status(500).json({ error: 'Unable to delete user.' });
   }
 });
 
@@ -84,6 +90,10 @@ usersRouter.put('/:id', async (request, response) => {
 
   if (!loggedUser || !oldUser) {
     return response.status(400).json({ error: 'Bad id request' });
+  }
+
+  if (loggedUser.status < oldUser.status) {
+    return response.status(401).json({ error: 'Not authorized.' });
   }
 
   let newPassword = null;
