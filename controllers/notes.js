@@ -91,7 +91,7 @@ notesRouter.post('/', async (request, response) => {
 });
 
 notesRouter.delete('/:id', async (request, response) => {
-  const { token } = request;
+  const { token, params } = request;
 
   if (!token) {
     return response.status(401).json({ error: 'Token missing' });
@@ -99,20 +99,17 @@ notesRouter.delete('/:id', async (request, response) => {
 
   const decodedToken = decodeToken(token, response);
 
-  const note = await Note
-    .findById(request.params.id);
-
-  if (!note) {
-    return response.status(400).json({ error: 'Bad id request' });
-  }
-
   const userId = decodedToken.id;
   const user = await User
     .findById(userId);
 
-  if ((note.user.toString() === userId.toString()) || user.status === userStatus.ADMIN) {
-    await Note.deleteOne(note);
-    return response.status(204).end();
+  if ((params.id.toString() === userId.toString()) || user.status === userStatus.ADMIN) {
+    try {
+      await Note.findOneAndRemove({ _id: params.id });
+      return response.status(204).end();
+    } catch {
+      return response.status(400).json({ error: 'Bad note id request.' });
+    }
   }
 
   return response.status(401).json({ error: 'Access unauthorized' });

@@ -1,6 +1,7 @@
 const usersRouter = require('express').Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const Note = require('../models/note');
 const User = require('../models/user');
 const userStatus = require('../utils/userStatus');
 const config = require('../utils/config');
@@ -57,6 +58,7 @@ usersRouter.delete('/:id', async (request, response) => {
 
   try {
     await userToDelete.remove();
+    await Note.remove({ user: userToDelete.id });
     return response.status(204).end();
   } catch {
     return response.status(500).json({ error: 'Unable to delete user.' });
