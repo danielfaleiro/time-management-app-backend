@@ -111,7 +111,12 @@ usersRouter.put('/:id', async (request, response) => {
     status: status || oldUser.status,
   };
 
-  const updatedUser = await User.findByIdAndUpdate(oldUser.id, newUser, { new: true });
+  let updatedUser = null;
+  try {
+    updatedUser = await User.findByIdAndUpdate(oldUser.id, newUser, { new: true });
+  } catch (e) {
+    return response.status(400).json({ error: e.message });
+  }
 
   let responseObject = {
     username: updatedUser.username,
@@ -160,7 +165,7 @@ usersRouter.post('/', async (request, response) => {
     const result = await newUser.save();
     return response.status(201).json(result);
   } catch (err) {
-    return response.status(500).json({ error: err.message });
+    return response.status(400).json({ error: err.message });
   }
 });
 
